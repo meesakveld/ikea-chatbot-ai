@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # 1. De Vector Database (Qdrant)
+  qdrant:
+    image: qdrant/qdrant:v1.9.0
+    container_name: ikea_database
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  # 2. Het AI-brein (Ollama)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ikea_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  # 3. Jouw Python Chatbot App
+  chatbot:
+    build: .
+    container_name: ai_api_server
+    ports:
+      - "8000:8000"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      - qdrant
+      - ollama
+    stdin_open: true
+    tty: true
+
+  cloudflare-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared_tunnel
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run
+
+volumes:
+  qdrant_data:
+  ollama_data:
