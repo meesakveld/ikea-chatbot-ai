@@ -271,7 +271,7 @@ export default function HomeScreen() {
 
                   {/* --- FIX: DYNAMISCHE LINK-KNOPPEN RENDEREN --- */}
                   {item.reference_hrefs && item.reference_hrefs.length > 0 && (
-                    <View className="ml-11 mt-2 space-y-2 max-w-[80%]">
+                    <View className="ml-11 mt-2 gap-2 max-w-[80%]">
                       {item.reference_hrefs.map((link, lIdx) => (
                         <TouchableOpacity
                           key={`link-${lIdx}`}
