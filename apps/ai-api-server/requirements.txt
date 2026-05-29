@@ -1,10 +1,7 @@
-requests
-beautifulsoup4
-ollama
-qdrant-client
-requests
-beautifulsoup4
-ollama
-qdrant-client
 fastapi
-uvicorn
+uvicorn[standard]
+requests
+beautifulsoup4
+ollama
+qdrant-client
+pydantic
