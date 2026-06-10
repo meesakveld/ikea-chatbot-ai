@@ -1,14 +1,4 @@
 services:
-  # 1. De Vector Database (Qdrant)
-  qdrant:
-    image: qdrant/qdrant:v1.9.0
-    container_name: ikea_database
-    ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_data:/qdrant/storage
-
-  # 2. Jouw Python Chatbot App
   chatbot:
     build: .
     container_name: ai_api_server
@@ -19,8 +9,6 @@ services:
       - 8.8.4.4
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      - qdrant
     stdin_open: true
     tty: true
 
@@ -31,6 +19,3 @@ services:
     environment:
       - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
     command: tunnel --no-autoupdate run
-
-volumes:
-  qdrant_data:

@@ -19,6 +19,35 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const STORAGE_KEY = "@ikea_chat_history";
 const SESSION_KEY = "@ikea_chat_session_id";
 
+// ---------------------------------------------------------------------------
+// TYPING ANIMATION HOOK
+// ---------------------------------------------------------------------------
+function useTypingAnimation(text, isNew, speed = 18) {
+  const [displayed, setDisplayed] = useState(isNew ? "" : text);
+  const [done, setDone] = useState(!isNew);
+
+  useEffect(() => {
+    if (!isNew) return;
+    let i = 0;
+    setDisplayed("");
+    setDone(false);
+    const interval = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) {
+        clearInterval(interval);
+        setDone(true);
+      }
+    }, speed);
+    return () => clearInterval(interval);
+  }, [text, isNew, speed]);
+
+  return { displayed, done };
+}
+
+// ---------------------------------------------------------------------------
+// TYPING INDICATOR (drie bouncing dots)
+// ---------------------------------------------------------------------------
 function TypingIndicator() {
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
@@ -63,6 +92,56 @@ function TypingIndicator() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// BOT MESSAGE (met schrijf-animatie)
+// ---------------------------------------------------------------------------
+function BotMessage({ item, isNew, onLinkPress }) {
+  const { displayed, done } = useTypingAnimation(item.content, isNew);
+
+  return (
+    <View className="mb-4">
+      <View className="flex-row items-start">
+        <View className="w-9 h-9 rounded-full bg-[#0051BA] justify-center items-center mr-2 mt-1">
+          <Text className="text-lg">🤖</Text>
+        </View>
+        <View className="bg-[#F0F0F0] rounded-2xl rounded-bl-[4px] px-[14px] py-3 max-w-[80%]">
+          <Text className="text-[#333333] text-[15px] leading-[21px]">
+            {displayed}
+            {!done && <Text className="text-[#0051BA]">▌</Text>}
+          </Text>
+          {done && (
+            <Text className="text-[#999999] text-[10px] mt-1">{item.timestamp}</Text>
+          )}
+        </View>
+      </View>
+
+      {/* Links verschijnen pas als animatie klaar is */}
+      {done && item.reference_hrefs && item.reference_hrefs.length > 0 && (
+        <View className="ml-11 mt-2 gap-2 max-w-[80%]">
+          {item.reference_hrefs.map((link, lIdx) => (
+            <TouchableOpacity
+              key={`link-${lIdx}`}
+              onPress={() => onLinkPress(link.href)}
+              className="bg-white border border-[#0051BA] rounded-xl p-3 flex-row items-center justify-between active:bg-[#0051BA]/5 shadow-sm"
+            >
+              <View className="flex-1 mr-2">
+                <Text className="text-[#0051BA] font-bold text-[14px]">{link.title}</Text>
+                {link.description ? (
+                  <Text className="text-[#666666] text-xs mt-0.5" numberOfLines={1}>{link.description}</Text>
+                ) : null}
+              </View>
+              <Text className="text-[#0051BA] font-bold text-lg">›</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MAIN SCREEN
+// ---------------------------------------------------------------------------
 export default function HomeScreen() {
   const scrollViewRef = useRef(null);
   const [inputText, setInputText] = useState("");
@@ -70,7 +149,7 @@ export default function HomeScreen() {
   const [isBotTyping, setIsBotTyping] = useState(false);
   const [sessionId, setSessionId] = useState("");
 
-  // Initialiseer chathistorie en behoud een vaste sessie-id tegen geheugenverlies
+  // Initialiseer chathistorie en behoud een vaste sessie-id
   useEffect(() => {
     const initializeChat = async () => {
       try {
@@ -81,7 +160,7 @@ export default function HomeScreen() {
           savedSession = `session-${Date.now()}`;
           await AsyncStorage.setItem(SESSION_KEY, savedSession);
         }
-        
+
         setSessionId(savedSession);
         setMessages(savedChat !== null ? JSON.parse(savedChat) : []);
       } catch (error) {
@@ -112,7 +191,6 @@ export default function HomeScreen() {
     const botMessageId = `${Date.now()}-bot-ai-${Math.random().toString(36).substr(2, 4)}`;
 
     try {
-      console.log("🚀 Verzenden naar chatbot API...");
       const response = await API.post('/chat', {
         session_id: sessionId || `session-${Date.now()}`,
         message: messageContent,
@@ -120,7 +198,6 @@ export default function HomeScreen() {
 
       const data = response.data;
       const botReply = data?.response_message || "Bericht succesvol verwerkt!";
-      // Haal de dynamische links op uit de API response payload
       const links = data?.reference_hrefs || null;
 
       setMessages((prevMessages) => [
@@ -131,10 +208,10 @@ export default function HomeScreen() {
           type: "text",
           content: botReply,
           timestamp: currentTime,
-          reference_hrefs: links, // Sla de linkjes op in de bericht-state
+          reference_hrefs: links,
+          isNew: true,
         }
       ]);
-
     } catch (error) {
       console.error("🔴 Netwerk Fout:", error);
       const foutMelding = error.response?.data?.detail || error.message;
@@ -147,6 +224,7 @@ export default function HomeScreen() {
           type: "text",
           content: `❌ Netwerkfout: ${foutMelding}. Controleer de verbinding.`,
           timestamp: currentTime,
+          isNew: true,
         },
       ]);
     } finally {
@@ -171,20 +249,33 @@ export default function HomeScreen() {
         timestamp: currentTime,
       },
     ]);
-    
+
     setInputText("");
     postMessage(cleanText);
   };
 
   const clearChatHistory = async () => {
     try {
+      const startMessage = {
+        content: "Hallo! Wat kan ik voor jou doen?",
+        id: "1781088726346-bot-ai-l16x",
+        reference_hrefs: [],
+        sender: "bot",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        type: "text",
+        isNew: true,
+      };
+
       await AsyncStorage.removeItem(STORAGE_KEY);
       await AsyncStorage.removeItem(SESSION_KEY);
       const newSession = `session-${Date.now()}`;
       await AsyncStorage.setItem(SESSION_KEY, newSession);
-      
+
       setSessionId(newSession);
       setMessages([]);
+      setTimeout(() => {
+        setMessages([startMessage]);
+      }, 250);
       setIsBotTyping(false);
     } catch (error) {
       console.error("Wissen mislukt:", error);
@@ -256,42 +347,17 @@ export default function HomeScreen() {
             }
 
             if (item.sender === "bot") {
+              const isNew = !!item.isNew && index === messages.length - 1 && !isBotTyping;
               return (
-                <View key={renderKey} className="mb-4">
-                  {/* Het tekstballonnetje van de bot */}
-                  <View className="flex-row items-start">
-                    <View className="w-9 h-9 rounded-full bg-[#0051BA] justify-center items-center mr-2 mt-1">
-                      <Text className="text-lg">🤖</Text>
-                    </View>
-                    <View className="bg-[#F0F0F0] rounded-2xl rounded-bl-[4px] px-[14px] py-3 max-w-[80%]">
-                      <Text className="text-[#333333] text-[15px] leading-[21px]">{item.content}</Text>
-                      <Text className="text-[#999999] text-[10px] mt-1">{item.timestamp}</Text>
-                    </View>
-                  </View>
-
-                  {/* --- FIX: DYNAMISCHE LINK-KNOPPEN RENDEREN --- */}
-                  {item.reference_hrefs && item.reference_hrefs.length > 0 && (
-                    <View className="ml-11 mt-2 gap-2 max-w-[80%]">
-                      {item.reference_hrefs.map((link, lIdx) => (
-                        <TouchableOpacity
-                          key={`link-${lIdx}`}
-                          onPress={() => handleLinkPress(link.href)}
-                          className="bg-white border border-[#0051BA] rounded-xl p-3 flex-row items-center justify-between active:bg-[#0051BA]/5 shadow-sm"
-                        >
-                          <View className="flex-1 mr-2">
-                            <Text className="text-[#0051BA] font-bold text-[14px]">{link.title}</Text>
-                            {link.description ? (
-                              <Text className="text-[#666666] text-xs mt-0.5" numberOfLines={1}>{link.description}</Text>
-                            ) : null}
-                          </View>
-                          <Text className="text-[#0051BA] font-bold text-lg">›</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                </View>
+                <BotMessage
+                  key={renderKey}
+                  item={item}
+                  isNew={isNew}
+                  onLinkPress={handleLinkPress}
+                />
               );
             }
+
             return null;
           })}
 

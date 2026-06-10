@@ -64,7 +64,7 @@ HEADERS = {
 BASE = "https://www.ikea.com/be/nl"
 
 BELGIUM_STORES = {
-    "gent":       {"url": f"{BASE}/stores/gent/",      "adres": "Blijstraat 1, 9051 Sint-Denijs-Westrem"},
+    "gent":       {"url": f"{BASE}/stores/gent/",      "adres": "Maaltekouter 2, 9051 Sint-Denijs-Westrem"},
     "brussel":    {"url": f"{BASE}/stores/brussel/",   "adres": "Humaniteitslaan 19, 1070 Anderlecht"},
     "zellik":     {"url": f"{BASE}/stores/zellik/",    "adres": "Brusselsesteenweg 645, 1731 Zellik"},
     "antwerpen":  {"url": f"{BASE}/stores/antwerpen/", "adres": "Bolivarplaats 1, 2000 Antwerpen"},
