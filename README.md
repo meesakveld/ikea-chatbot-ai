@@ -1,3 +1,5 @@
+![Banner](/.github/banner.png)
+
 # IKEA Chatbot
 
 An intelligent chatbot application for IKEA-related inquiries in Belgium, built with React Native/Expo frontend and a FastAPI backend with local LLM support powered by Ollama.
